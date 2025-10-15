@@ -1,117 +1,151 @@
-# Project Requirements Document: codeguide-starter
-
----
+# Project Requirements Document (PRD)
 
 ## 1. Project Overview
 
-The **codeguide-starter** project is a boilerplate web application that provides a ready-made foundation for any web project requiring secure user authentication and a post-login dashboard. It sets up the common building blocks—sign-up and sign-in pages, API routes to handle registration and login, and a simple dashboard interface driven by static data. By delivering this skeleton, it accelerates development time and ensures best practices are in place from day one.
+The **Nostalgic Memories Wall** is a web application that lets visitors share short text memories and photos in an interactive, school-themed mosaic. Think of it as a virtual bulletin board where alumni, students, or event attendees upload snapshots and personal notes. An admin team can curate submissions, approving only those that fit the community tone. Once approved, memories are displayed as animated cards that overlap in a randomized collage—complete with Polaroid-style borders, paper-like textures, and subtle motion effects.
 
-This starter kit is being built to solve the friction developers face when setting up repeated common tasks: credential handling, session management, page routing, and theming. Key objectives include: 1) delivering a fully working authentication flow (registration & login), 2) providing a gated dashboard area upon successful login, 3) establishing a clear, maintainable project structure using Next.js and TypeScript, and 4) demonstrating a clean theming approach with global and section-specific CSS. Success is measured by having an end-to-end login journey in under 200 lines of code and zero runtime type errors.
+We’re building this project to foster a sense of community and nostalgia before an upcoming reunion or gathering. By crowdsourcing memories in a fun, visually rich way, participants can revisit shared experiences and comment or react in real time. The key success criteria are:
 
----
+• Seamless submission and moderation flows (zero friction for users and admins)  
+• Real-time updates on both public wall and admin dashboard  
+• A delightful, retro-inspired interface that works on desktop and mobile  
+• Robust security around file uploads, data privacy, and admin access
 
 ## 2. In-Scope vs. Out-of-Scope
 
-### In-Scope (Version 1)
-- User registration (sign-up) form with validation
-- User login (sign-in) form with validation
-- Next.js API routes under `/api/auth/route.ts` handling:
-  - Credential validation
-  - Password hashing (e.g., bcrypt)
-  - Session creation or JWT issuance
-- Protected dashboard pages under `/dashboard`:
-  - `layout.tsx` wrapping dashboard content
-  - `page.tsx` rendering static data from `data.json`
-- Global application layout in `/app/layout.tsx`
-- Basic styling via `globals.css` and `dashboard/theme.css`
-- TypeScript strict mode enabled
+**In-Scope (v1)**
+- Admin authentication and session management using Supabase Auth  
+- Public memory submission form (text + image) with client- and server-side validation  
+- Image storage in Supabase Storage with size/type checks  
+- Protected Admin Curation Dashboard: view, approve, reject, delete submissions  
+- Animated, randomized “Wall of Memories” display of approved posts  
+- Real-time syncing of submissions, approvals, and emoji reactions via Supabase Realtime  
+- Reaction and comment system for each memory card  
+- Static Reunion page: photo gallery, embedded map, FAQ section  
+- Basic theming: CSS variables for nostalgic design, light/dark mode via next-themes  
+- CI/CD pipeline on Vercel with automated tests on pull requests
 
-### Out-of-Scope (Later Phases)
-- Integration with a real database (PostgreSQL, MongoDB, etc.)
-- Advanced authentication flows (password reset, email verification, MFA)
-- Role-based access control (RBAC)
-- Multi-tenant or white-label theming
-- Unit, integration, or end-to-end testing suites
-- CI/CD pipeline and production deployment scripts
-
----
+**Out-of-Scope (v1)**
+- Native mobile apps (iOS/Android)  
+- Deep social media integration (auto-posting to FB/Twitter)  
+- Multi-language or localization support  
+- Advanced analytics or reporting dashboards  
+- Gamification (badges, leaderboards)  
+- Offline submission or PWA caching beyond essential service workers
 
 ## 3. User Flow
 
-A new visitor lands on the root URL and sees a welcome page with options to **Sign Up** or **Sign In**. If they choose Sign Up, they fill in their email, password, and hit “Create Account.” The form submits to `/api/auth/route.ts`, which hashes the password, creates a new user session or token, and redirects them to the dashboard. If any input is invalid, an inline error message explains the issue (e.g., “Password too short”).
+Visitors land on the home page and immediately see the live “Wall of Memories” filled with approved cards. Each card shows a thumbnail, a short text snippet, a timestamp, and reaction counts. Visitors can scroll, hover or tap a card to expand it, add emoji reactions, or read/write comments in-line. A floating “Share Your Memory” button opens a modal where users type their memory, upload a photo, optionally link a social profile via the Social Connect modal, and hit submit. The form validates file size (max 5 MB) and image format (JPEG/PNG) before sending data to a Next.js API route.
 
-Once authenticated, the user is taken to the `/dashboard` route. Here they see a sidebar or header defined by `dashboard/layout.tsx`, and the main panel pulls in static data from `data.json`. They can log out (if that control is present), but otherwise their entire session is managed by server-side cookies or tokens. Returning users go directly to Sign In, submit credentials, and upon success they land back on `/dashboard`. Any unauthorized access to `/dashboard` redirects back to Sign In.
-
----
+Admins navigate to the `/sign-in` page and enter credentials managed by Supabase Auth. After sign-in, middleware ensures only authenticated sessions reach the protected `/dashboard`. Here, pending submissions stream in real time: admins review each memory card, then click Approve, Reject, or Delete. Approvals trigger a Supabase Realtime broadcast so connected viewers see new cards instantly. Rejections or deletes remove the item from the public queue without ever displaying it on the wall.
 
 ## 4. Core Features
 
-- **Sign-Up Page (`/app/sign-up/page.tsx`)**: Form fields for email & password, client-side validation, POST to `/api/auth`.
-- **Sign-In Page (`/app/sign-in/page.tsx`)**: Form fields for email & password, client-side validation, POST to `/api/auth`.
-- **Authentication API (`/app/api/auth/route.ts`)**: Handles both registration and login based on HTTP method, integrates password hashing (bcrypt) and session or JWT logic.
-- **Global Layout (`/app/layout.tsx` + `globals.css`)**: Shared header, footer, and CSS resets across all pages.
-- **Dashboard Layout (`/app/dashboard/layout.tsx` + `dashboard/theme.css`)**: Sidebar or top nav for authenticated flows, section-specific styling.
-- **Dashboard Page (`/app/dashboard/page.tsx`)**: Reads `data.json`, renders it as cards or tables.
-- **Static Data Source (`/app/dashboard/data.json`)**: Example dataset to demo dynamic rendering.
-- **TypeScript Configuration**: `tsconfig.json` with strict mode and path aliases (if any).
+- **Authentication & Authorization**  
+  • Supabase Auth for admin sign-in, JWT tokens, and session cookies  
+  • Row-Level Security (RLS) policies to guard database operations  
 
----
+- **Memory Submission**  
+  • React form with text area and file input  
+  • Next.js API route validates input, uploads image to Supabase Storage, writes metadata to `posts` table  
+
+- **Image Storage**  
+  • Supabase Storage bucket with RLS  
+  • Enforce max file size and type on API layer  
+
+- **Admin Curation Dashboard**  
+  • Protected React page listing pending posts  
+  • Approve/Reject/Delete actions via Supabase SDK  
+  • Real-time updates on status changes  
+
+- **Public Wall Display**  
+  • Animated `MemoryCard` components using Aceternity UI  
+  • Randomized, overlapping layout with CSS transforms  
+  • Infinite scroll or pagination for large datasets  
+
+- **Realtime Updates**  
+  • Supabase Realtime subscriptions for `posts`, `reactions`, `comments`  
+
+- **Reactions & Comments**  
+  • `ReactionButtons` for emoji tallies  
+  • Inline comment threads per memory card  
+
+- **Social Connect Modal**  
+  • Optional social profile linking before submission  
+
+- **Static Reunion Page**  
+  • Lightbox gallery, interactive map, FAQ section  
+
+- **Theming & Nostalgia Design**  
+  • Tailwind CSS + CSS variables for Polaroid borders, textures, fonts  
+  • Light/dark mode via next-themes  
+
+- **CI/CD & Testing**  
+  • Vercel previews on PRs, production deploy on merge  
+  • Automated unit, integration (Playwright/Cypress), and API tests
 
 ## 5. Tech Stack & Tools
 
-- **Framework**: Next.js (App Router) for file-based routing, SSR/SSG, and API routes.
-- **Language**: TypeScript for type safety.
-- **UI Library**: React 18 for component-based UI.
-- **Styling**: Plain CSS via `globals.css` (global reset) and `theme.css` (sectional styling). Can easily migrate to CSS Modules or Tailwind in the future.
-- **Backend**: Node.js runtime provided by Next.js API routes.
-- **Password Hashing**: bcrypt (npm package).
-- **Session/JWT**: NextAuth.js or custom JWT logic (to be decided in implementation).
-- **IDE & Dev Tools**: VS Code with ESLint, Prettier extensions. Optionally, Cursor.ai for AI-assisted coding.
+- **Frontend**
+  • Next.js 15 (App Router)  
+  • React 18 + TypeScript  
+  • Tailwind CSS, shadcn/ui, Aceternity UI  
+  • next-themes for color mode  
 
----
+- **Backend**
+  • Next.js API Routes  
+  • Supabase JavaScript SDK (Auth, Database, Storage, Realtime)  
+  • PostgreSQL (managed by Supabase)  
+
+- **DevOps & CI/CD**
+  • Vercel for hosting and preview environments  
+  • GitHub Actions or Vercel built-in for test runs  
+
+- **Development Tools**
+  • Node.js (v18+), npm or Yarn  
+  • VS Code with Cursor or Windsurf plugins  
+  • Playwright or Cypress for end-to-end testing  
 
 ## 6. Non-Functional Requirements
 
-- **Performance**: Initial page load under 200 ms on a standard broadband connection. API responses under 300 ms.
-- **Security**:
-  - HTTPS only in production.
-  - Proper CORS, CSRF protection for API routes.
-  - Secure password storage (bcrypt with salt).
-  - No credentials or secrets checked into version control.
-- **Scalability**: Structure must support adding database integration, caching layers, and advanced auth flows without rewiring core app.
-- **Usability**: Forms should give real-time feedback on invalid input. Layout must be responsive (mobile > 320 px).
-- **Maintainability**: Code must adhere to TypeScript strict mode. Linting & formatting enforced by ESLint/Prettier.
+- **Performance**:  
+  • Initial page load < 1.5 s on 3G throttling  
+  • Sub-200 ms API response times  
+  • Real-time event propagation < 500 ms  
 
----
+- **Security & Compliance**:  
+  • Enforce Supabase RLS on all tables  
+  • File size/type checks on uploads  
+  • HTTPS everywhere, secure HTTP headers (CSP, HSTS)  
+  • GDPR-compliant data handling (opt-in profiles)  
+
+- **Usability & Accessibility**:  
+  • WCAG 2.1 AA standards  
+  • Keyboard navigation and screen-reader support  
+  
+- **Scalability & Reliability**:  
+  • Handle 100+ concurrent real-time connections  
+  • 99.9% uptime via Vercel  
+  
+- **Maintainability**:  
+  • Modular, component-driven codebase  
+  • 80%+ test coverage on core flows
 
 ## 7. Constraints & Assumptions
 
-- **No Database**: Dashboard uses only `data.json`; real database integration is deferred.
-- **Node Version**: Requires Node.js >= 14.
-- **Next.js Version**: Built on Next.js 13+ App Router.
-- **Authentication**: Assumes availability of bcrypt or NextAuth.js at implementation time.
-- **Hosting**: Targets serverless or Node.js-capable hosting (e.g., Vercel, Netlify).
-- **Browser Support**: Modern evergreen browsers; no IE11 support required.
-
----
+- Requires an existing Supabase project (Auth + Storage + DB with RLS enabled).  
+- Image uploads capped at 5 MB; supported formats: JPEG, PNG.  
+- Deployment target is Vercel; environment variables managed in Vercel dashboard.  
+- Modern evergreen browsers assumed (Chrome, Firefox, Safari, Edge).  
+- No offline or PWA caching beyond basic service worker.
 
 ## 8. Known Issues & Potential Pitfalls
 
-- **Static Data Limitation**: `data.json` is only for demo. A real API or database will be needed to avoid stale data.
-  *Mitigation*: Define a clear interface for data fetching so swapping to a live endpoint is trivial.
+- **Realtime Rate Limits**: Supabase Realtime may throttle high-frequency updates. Mitigation: batch updates, debounce UI renders.  
+- **Image Upload Failures**: Large files or network interruptions can cause errors. Mitigation: client-side previews, retry logic, clear error messages.  
+- **Layout Jitter**: Randomized overlapping cards can shift on window resize. Mitigation: calculate positions on load and cache them; recalc on explicit resize events.  
+- **Spam Submissions**: Public form could be abused. Mitigation: simple CAPTCHA or honeypot field.  
+- **RLS Misconfiguration**: Incorrect policies could expose data. Mitigation: thorough policy reviews and environment-specific tests.  
 
-- **Global CSS Conflicts**: Using global styles can lead to unintended overrides.
-  *Mitigation*: Plan to migrate to CSS Modules or utility-first CSS in Phase 2.
-
-- **API Route Ambiguity**: Single `/api/auth/route.ts` handling both sign-up and sign-in could get complex.
-  *Mitigation*: Clearly branch on HTTP method (`POST /register` vs. `POST /login`) or split into separate files.
-
-- **Lack of Testing**: No test suite means regressions can slip in.
-  *Mitigation*: Build a minimal Jest + React Testing Library setup in an early iteration.
-
-- **Error Handling Gaps**: Client and server must handle edge cases (network failures, malformed input).
-  *Mitigation*: Define a standard error response schema and show user-friendly messages.
-
----
-
-This PRD should serve as the single source of truth for the AI model or any developer generating the next set of technical documents: Tech Stack Doc, Frontend Guidelines, Backend Structure, App Flow, File Structure, and IDE Rules. It contains all functional and non-functional requirements with no ambiguity, enabling seamless downstream development.
+**End of PRD**  
+This document is the single source of truth for all subsequent technical deliverables—frontend guidelines, backend structure, detailed app flow, file organization, and CI/CD configurations—all can be derived without ambiguity from the requirements outlined above.

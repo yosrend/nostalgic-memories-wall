@@ -1,116 +1,135 @@
-# Security Guidelines for codeguide-starter
+# Wall of Memories – Security Guideline Document
 
-This document defines mandatory security principles and implementation best practices tailored to the **codeguide-starter** repository. It aligns with Security-by-Design, Least Privilege, Defense-in-Depth, and other core security tenets. All sections reference specific areas of the codebase (e.g., `/app/api/auth/route.ts`, CSS files, environment configuration) to ensure practical guidance.
+This document defines the security requirements and best practices for the **Wall of Memories** application, ensuring it’s secure by design, resilient to attacks, and protects user data and privacy throughout its lifecycle.
 
 ---
 
-## 1. Security by Design
+## 1. Core Security Principles
 
-• Embed security from day one: review threat models whenever adding new features (e.g., new API routes, data fetching).
-• Apply “secure defaults” in Next.js configuration (`next.config.js`), enabling strict mode and disabling debug flags in production builds.
-• Maintain a security checklist in your PR template to confirm that each change has been reviewed against this guideline.
+• **Security by Design**: Integrate security at every phase—from planning and development to testing and deployment.  
+• **Least Privilege**: Grant only the permissions needed (e.g., separate service roles in Supabase with minimal rights).  
+• **Defense in Depth**: Layer controls (e.g., API authentication, Next.js middleware, Supabase RLS, CSP).  
+• **Fail Securely**: On error, avoid exposing stack traces or sensitive data. Provide generic error feedback to users.  
+• **Secure Defaults**: All new features (Storage buckets, API endpoints) default to the most restrictive settings.
 
 ---
 
 ## 2. Authentication & Access Control
 
-### 2.1 Password Storage
-- Use **bcrypt** (or Argon2) with a per-user salt to hash passwords in `/app/api/auth/route.ts`.
-- Enforce a strong password policy on both client and server: minimum 12 characters, mixed case, numbers, and symbols.
+### 2.1 Supabase Auth Configuration
 
-### 2.2 Session Management
-- Issue sessions via Secure, HttpOnly, SameSite=strict cookies. Do **not** expose tokens to JavaScript.
-- Implement absolute and idle timeouts. For example, invalidate sessions after 30 minutes of inactivity.
-- Protect against session fixation by regenerating session IDs after authentication.
+- Use **Supabase Auth** for all user and admin authentication.  
+- Enforce **strong password policies** (min. 12 characters, mix of letters, numbers, symbols) in the Supabase dashboard.  
+- Enable **MFA** (TOTP or SMS) for admin accounts.  
+- Store JWTs in **Secure, HttpOnly cookies** with `SameSite=Strict` and `Secure` flags.  
 
-### 2.3 Brute-Force & Rate Limiting
-- Apply rate limiting at the API layer (e.g., using `express-rate-limit` or Next.js middleware) on `/api/auth` to throttle repeated login attempts.
-- Introduce exponential backoff or temporary lockout after N failed attempts.
+### 2.2 Next.js Middleware & Route Protection
 
-### 2.4 Role-Based Access Control (Future)
-- Define user roles in your database model (e.g., `role = 'user' | 'admin'`).
-- Enforce server-side authorization checks in every protected route (e.g., in `dashboard/layout.tsx` loader functions).
+- Implement a **Next.js middleware** to guard protected routes (`/dashboard/*`).  
+- Verify JWT signature, expiration (`exp`) and user role claims on each request.  
+- Redirect unauthorized or expired sessions to the login page.
+
+### 2.3 Supabase Row-Level Security (RLS)
+
+- **Posts Table**:
+  - PUBLIC role: `SELECT` only where `status = 'approved'`.  
+  - AUTHENTICATED role: `INSERT` only; no direct `UPDATE`/`DELETE`.  
+  - ADMIN role (via custom JWT claim): `UPDATE`/`DELETE` on any row.  
+- **Reactions & Comments Tables**:
+  - Anyone may `INSERT`.  
+  - Only the record owner (by `user_id` claim) may `UPDATE`/`DELETE`.
+- **Storage Buckets**:
+  - Private by default.  
+  - Public-read only for approved images.  
+  - Enforce upload path patterns to prevent arbitrary bucket access.
 
 ---
 
 ## 3. Input Handling & Processing
 
-### 3.1 Validate & Sanitize All Inputs
-- On **client** (`sign-up/page.tsx`, `sign-in/page.tsx`): perform basic format checks (email regex, password length).
-- On **server** (`/app/api/auth/route.ts`): re-validate inputs with a schema validator (e.g., `zod`, `Joi`).
-- Reject or sanitize any unexpected fields to prevent injection attacks.
+### 3.1 Form Validation
 
-### 3.2 Prevent Injection
-- If you introduce a database later, always use parameterized queries or an ORM (e.g., Prisma) rather than string concatenation.
-- Avoid dynamic `eval()` or template rendering with unsanitized user input.
+- **Client-side**: Use React Hook Form + Zod for schema definitions.  
+- **Server-side**: Validate via Zod or Joi in Next.js API routes before processing.  
 
-### 3.3 Safe Redirects
-- When redirecting after login or logout, validate the target against an allow-list to prevent open redirects.
+### 3.2 File Upload Security
+
+- Restrict file types to `image/jpeg`, `image/png`, `image/webp`.  
+- Enforce max file size (e.g., 5 MB).  
+- Sanitize file names; generate UUID-based storage keys.  
+- Virus-scan uploads with a third-party service or lambda function.
+
+### 3.3 Injection and XSS Prevention
+
+- Use parameterized queries via Supabase client (no string concatenation).  
+- Escape or sanitize user-provided text when rendering in React.  
+- Employ a strict **Content Security Policy** to block inline scripts and unauthorized sources.
 
 ---
 
 ## 4. Data Protection & Privacy
 
-### 4.1 Encryption & Secrets
-- Enforce HTTPS/TLS 1.2+ for all front-end ↔ back-end communications.
-- Never commit secrets—use environment variables and a secrets manager (e.g., AWS Secrets Manager, Vault).
-
-### 4.2 Sensitive Data Handling
-- Do ​not​ log raw passwords, tokens, or PII in server logs. Mask or redact any user identifiers.
-- If storing PII in `data.json` or a future database, classify it and apply data retention policies.
+- Enforce **TLS 1.2+** for all client-server and server-database communication.  
+- Rely on Supabase’s managed encryption at rest (AES-256).  
+- Store no PII outside the authenticated user context.  
+- **Rotate service keys** every 90 days; store secrets in Vercel Environment Variables or a Vault solution.  
+- Mask sensitive data in logs; do not log raw tokens, passwords, or PII.
 
 ---
 
 ## 5. API & Service Security
 
-### 5.1 HTTPS Enforcement
-- In production, redirect all HTTP traffic to HTTPS (e.g., via Vercel’s redirect rules or custom middleware).
-
-### 5.2 CORS
-- Configure `next.config.js` or API middleware to allow **only** your front-end origin (e.g., `https://your-domain.com`).
-
-### 5.3 API Versioning & Minimal Exposure
-- Version your API routes (e.g., `/api/v1/auth`) to handle future changes without breaking clients.
-- Return only necessary fields in JSON responses; avoid leaking internal server paths or stack traces.
+- **HTTPS Only**: Redirect HTTP → HTTPS at the edge (Vercel).  
+- **Rate Limiting**: Use Vercel Edge Middleware or API Gateway to throttle endpoints (e.g., 100 req/min per IP).  
+- **CORS**: Allow only trusted origins (`https://your-domain.com`).  
+- **HTTP Methods**: Enforce correct use—GET for reads, POST for writes, PUT/PATCH for updates, DELETE for removals.  
+- **Versioning**: Prefix API routes (e.g., `/api/v1/posts`).
 
 ---
 
 ## 6. Web Application Security Hygiene
 
-### 6.1 CSRF Protection
-- Use anti-CSRF tokens for any state-changing API calls. Integrate Next.js CSRF middleware or implement synchronizer tokens stored in cookies.
-
-### 6.2 Security Headers
-- In `next.config.js` (or a custom server), add these headers:
-  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `Referrer-Policy: no-referrer-when-downgrade`
-  - `Content-Security-Policy`: restrict script/style/src to self and trusted CDNs.
-
-### 6.3 Secure Cookies
-- Set `Secure`, `HttpOnly`, `SameSite=Strict` on all cookies. Avoid storing sensitive data in `localStorage`.
-
-### 6.4 Prevent XSS
-- Escape or encode all user-supplied data in React templates. Avoid `dangerouslySetInnerHTML` unless content is sanitized.
+- **Secure Headers** (via `next-secure-headers`):  
+  - `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`.  
+- **CSRF Protection**: Use Anti-CSRF tokens on state-changing POST/PUT/DELETE routes.  
+- **Cookies**: `HttpOnly`, `SameSite=Strict`, `Secure`.  
+- **SRI**: Add Subresource Integrity hashes to any third-party scripts.
 
 ---
 
 ## 7. Infrastructure & Configuration Management
 
-- Harden your hosting environment (e.g., Vercel/Netlify) by disabling unnecessary endpoints (GraphQL/GraphiQL playgrounds in production).
-- Rotate secrets and API keys regularly via your secrets manager.
-- Maintain minimal privileges: e.g., database accounts should only have read/write on required tables.
-- Keep Node.js, Next.js, and all system packages up to date.
+- **Serverless Deployment**: Host on Vercel; disable debug logs in production.  
+- **Environment Variables**: `.env.local` for dev; configure secrets only in Vercel dashboard.  
+- **Network Segmentation**: Supabase service role key is used only server-side—not shipped to clients.  
+- **Least Privilege for Service Keys**: Use anon/public key for client; service role key only in API routes with minimal privileges.
 
 ---
 
 ## 8. Dependency Management
 
-- Commit and maintain `package-lock.json` to guarantee reproducible builds.
-- Integrate a vulnerability scanner (e.g., GitHub Dependabot, Snyk) to monitor and alert on CVEs in dependencies.
-- Trim unused packages; each added library increases the attack surface.
+- **Package Lockfiles**: Commit `package-lock.json` to ensure deterministic builds.  
+- **Vulnerability Scanning**: Integrate Snyk or GitHub Dependabot for CVE alerts.  
+- **Minimal Footprint**: Audit and remove unused libraries (e.g., Drizzle ORM, bcrypt).  
+- **Regular Updates**: Schedule monthly dependency upgrades and patch reviews.
 
 ---
 
-Adherence to these guidelines will ensure that **codeguide-starter** remains secure, maintainable, and resilient as it evolves. Regularly review and update this document to reflect new threats and best practices.
+## 9. Monitoring, Logging & Incident Response
+
+- **Centralized Logging**: Capture errors and warnings via Sentry (no PII in logs).  
+- **Uptime Monitoring**: Use Pingdom or Vercel’s built-in alerts for downtime.  
+- **Alerting**: Notify on repeated 5xx errors or RLS policy violations.  
+- **Incident Playbook**: Define steps for key compromise—rotate keys, revoke tokens, notify stakeholders.
+
+---
+
+## 10. Compliance & Privacy Considerations
+
+- **GDPR/CCPA**: Provide data export/deletion endpoints for user requests.  
+- **Data Retention Policy**: Archive or purge records older than configurable thresholds.  
+- **Privacy Policy**: Document what data is collected, how it’s stored, and who has access.
+
+---
+
+By following these guidelines, the **Wall of Memories** application will maintain strong security posture, protect user data, and deliver a reliable, trustworthy experience.

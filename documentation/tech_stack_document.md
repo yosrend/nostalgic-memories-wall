@@ -1,90 +1,128 @@
 # Tech Stack Document
 
-This document explains the key technologies chosen for the **codeguide-starter** project. It’s written in everyday language so anyone—technical or not—can understand why each tool was picked and how it supports the application.
+This document outlines the technology choices for the **"Wall of Memories"** project. It explains each technology in everyday language, clarifying how they fit together to build a reliable, interactive, and nostalgic web application.
 
-## 1. Frontend Technologies
-The frontend is everything the user sees and interacts with. For this project, we’ve used:
+## Frontend Technologies
 
-- **Next.js (App Router)**
-  - A React framework that makes page routing, server-side rendering, and API routes very simple.
-  - Enhances user experience by pre-rendering pages on the server or at build time, leading to faster initial load.
-- **React 18**
-  - The underlying library for building user interfaces with reusable components.
-  - Provides a smooth, interactive experience thanks to its virtual DOM and modern hooks.
+Our frontend is all about delivering a snappy, colorful, and intuitive user interface. Here’s what we use:
+
+- **Next.js 15 (App Router)**
+  - The core framework for building pages, API routes, and handling server-side rendering or static generation.
+  - Makes it easy to organize public pages (the Wall, Reunion page) and protected pages (Admin Login, Dashboard).
+
+- **React**
+  - Powers our component-based UI: every memory card, button, form, and modal is a reusable React component.
+
 - **TypeScript**
-  - A superset of JavaScript that adds types (labels for data).
-  - Helps catch errors early during development and makes the code easier to maintain.
-- **CSS (globals.css & theme.css)**
-  - **globals.css** applies base styles (fonts, colors, resets) across the entire app.
-  - **dashboard/theme.css** defines the look and feel specific to the dashboard area.
-  - This separation keeps styles organized and avoids accidental style conflicts.
+  - Adds type safety, catching errors early and keeping our code predictable—especially useful when talking to the database or handling API data.
 
-By combining these tools, we have a clear structure (Next.js folders for pages and layouts), safer code (TypeScript), and flexible styling with vanilla CSS.
+- **Tailwind CSS**
+  - A utility-first styling framework that lets us rapidly build custom designs without writing large CSS files.
+  - Underpins both **shadcn/ui** and **Aceternity UI** components, ensuring a consistent look and feel.
 
-## 2. Backend Technologies
-The backend handles data, user accounts, and the logic behind the scenes. Our choices here are:
+- **shadcn/ui**
+  - A collection of pre-built, accessible UI components (buttons, inputs, modals) that plug directly into our Tailwind setup.
+
+- **Aceternity UI**
+  - Provides the animated, nostalgic “Polaroid card” components and gallery layouts that make the wall come alive.
+
+- **next-themes**
+  - Enables light/dark mode toggling so we can offer a “daytime hallway” look and a moody “night mode” that mimics walking past a bulletin board under soft lights.
+
+## Backend Technologies
+
+Our backend handles data storage, authentication, and real-time updates, all through Next.js API routes and Supabase services.
 
 - **Next.js API Routes**
-  - Allows us to write server-side code (`route.ts` files) alongside our frontend in the same project.
-  - Runs on Node.js, so we can handle requests like sign-up, sign-in, and data fetching in one place.
-- **Node.js Runtime**
-  - The JavaScript environment on the server that executes our API routes.
-- **bcrypt** (npm package)
-  - A library for hashing passwords securely before storing them.
-  - Ensures that even if someone got access to our data, raw passwords aren’t visible.
-- **(Optional) NextAuth.js or JWT**
-  - While this starter kit shows a custom authentication flow, it can easily integrate services like NextAuth.js for email-based login or JWT (JSON Web Tokens) for stateless sessions.
+  - Serve as our serverless functions for handling form submissions, file uploads, comment/reaction management, and admin actions.
 
-These components work together to receive user credentials, verify or store them securely, manage sessions or tokens, and deliver protected data back to the frontend.
+- **Supabase JavaScript SDK**
+  - Replaces traditional ORMs and auth libraries.
+  - Offers:
+    - **Auth** (sign-up, sign-in, JWT token management)
+    - **Database** (managed PostgreSQL with built-in CRUD functions)
+    - **Realtime** (listening to changes in posts or reactions)
+    - **Storage** (managing image uploads with access policies)
 
-## 3. Infrastructure and Deployment
-Infrastructure covers where and how we host the app, as well as how changes get delivered:
+- **Supabase Auth Helpers for Next.js**
+  - Simplifies integrating Supabase Auth into Next.js middleware, API routes, and client code.
 
-- **Git & GitHub**
-  - Version control system (Git) and remote hosting (GitHub) keep track of all code changes and allow team collaboration.
-- **Vercel (or Netlify)**
-  - A popular hosting service optimized for Next.js, with one-click deployments and global content delivery.
-  - Automatically rebuilds and deploys the site whenever code is pushed to the main branch.
-- **GitHub Actions (CI/CD)**
-  - Automates tasks like linting (ESLint), formatting (Prettier), and running any tests you add.
-  - Ensures that only clean, tested code goes live.
+- **PostgreSQL (Supabase managed)**
+  - Our single source of truth for storing memory posts, reactions, comments, and user roles.
 
-Together, these tools provide a reliable, scalable setup where every code change is tested and deployed quickly, with minimal manual work.
+## Infrastructure and Deployment
 
-## 4. Third-Party Integrations
-While this starter kit is minimal by design, it already includes or can easily add:
+To keep the project stable, up-to-date, and easy to share, we rely on these infrastructure tools:
 
-- **bcrypt**
-  - For secure password hashing (included as an npm dependency).
-- **NextAuth.js** (optional)
-  - A full-featured authentication library supporting email/password, OAuth, and more.
-- **Sentry or LogRocket** (optional)
-  - For real-time error tracking and performance monitoring in production.
+- **Vercel**
+  - Hosts both frontend and backend (API routes) seamlessly.
+  - Automatically builds and deploys every time we push to GitHub.
+  - Manages environment variables (Supabase URL, API keys) securely in its dashboard.
 
-These integrations help extend the app’s capabilities without building every feature from scratch.
+- **Git and GitHub**
+  - Version control system and code hosting platform for collaboration, code review, and pull-request based workflows.
 
-## 5. Security and Performance Considerations
-We’ve baked in several measures to keep users safe and the app running smoothly:
+- **CI/CD Pipeline** (built into Vercel)
+  - Runs tests on every push.
+  - Generates preview deployments for feature branches.
+  - Deploys the main branch to production once tests pass.
 
-Security:
-- Passwords are never stored in plain text—bcrypt hashes them with a random salt.
-- API routes can implement CSRF protection and input validation to block malicious requests.
-- Session tokens or cookies are marked secure and HttpOnly to prevent theft via JavaScript.
+- **Docker (optional for local development)**
+  - Provides a consistent local environment by connecting to a shared Supabase development project.
 
-Performance:
-- Server-side rendering (SSR) and static site generation (SSG) in Next.js deliver pages faster.
-- Code splitting and lazy-loaded components ensure users only download what they need.
-- Global CSS and theme files are small and cached by the browser for quick repeat visits.
+- **Environment Variables**
+  - Stored in `.env.local` (development) and set in Vercel (preview/production) using a `.env.example` template.
 
-These strategies work together to give users a fast, secure experience every time.
+## Third-Party Integrations
 
-## 6. Conclusion and Overall Tech Stack Summary
-In building **codeguide-starter**, we chose technologies that:
+We integrate several external services to enrich functionality and speed up development:
 
-- Align with modern web standards (Next.js, React, TypeScript).
-- Provide a clear, file-based project structure for rapid onboarding.
-- Offer built-in support for server-side rendering, API routes, and static assets.
-- Emphasize security through password hashing, session management, and safe defaults.
-- Enable easy scaling and future enhancements via modular code and optional integrations.
+- **Supabase**
+  - All-in-one backend: Auth, Database, Storage, Realtime.
 
-This stack strikes a balance between simplicity for newcomers and flexibility for experienced teams. It accelerates development of a secure authentication flow and a polished dashboard, while leaving room to plug in databases, test suites, and advanced features as the project grows.
+- **Aceternity UI**
+  - Animated UI components for cards, galleries, and dialogs.
+
+- **Map Embedding** (e.g., Google Maps or Leaflet)
+  - Shows reunion locations on an interactive map (can be embedded via iframe or a lightweight JS library).
+
+- **Optional Analytics**
+  - You can connect Vercel Analytics or another tool (e.g., Plausible, Google Analytics) to track page visits and user interactions.
+
+## Security and Performance Considerations
+
+We take both security and speed seriously, ensuring visitors have a smooth experience and data remains protected.
+
+- **Row-Level Security (RLS)** in Supabase
+  - Public users can only read `approved` posts.
+  - Only admins (via JWT roles) can update or delete posts and manage reactions/comments.
+
+- **JWT-Based Authentication**
+  - Supabase issues secure tokens for every logged-in admin, used to guard protected routes and API calls.
+
+- **API Route Validation**
+  - Each endpoint checks input data, file sizes, and formats before writing to the database or storage, returning friendly error messages on failure.
+
+- **Next.js Image Optimization**
+  - Automatically serves appropriately sized images and uses modern formats (WebP), improving load times for memory photos.
+
+- **Tailwind CSS Purge**
+  - Strips out unused CSS classes in production builds, keeping stylesheet sizes minimal.
+
+- **CDN Caching (via Vercel)**
+  - Static assets and pages are cached close to users, ensuring fast page loads worldwide.
+
+- **Realtime Subscriptions**
+  - Efficiently push updates (new posts, reactions) without constant polling, reducing server and network load.
+
+## Conclusion and Overall Tech Stack Summary
+
+This tech stack combines modern, widely adopted tools to deliver an interactive, reliable, and easy-to-maintain application:
+
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS, shadcn/ui, Aceternity UI, next-themes
+- **Backend**: Next.js API Routes, Supabase SDK (Auth, Database, Storage, Realtime), managed PostgreSQL
+- **Infrastructure**: Vercel hosting + CI/CD, Git/GitHub, optional Docker for local development
+- **Integrations**: Supabase services, animated UI components, interactive mapping, optional analytics
+- **Security & Performance**: Supabase RLS, JWT auth, input validation, image optimization, CDN caching
+
+Together, these choices align perfectly with the project’s goals: building a vibrant, nostalgic “Wall of Memories” that feels alive in real time and remains secure, scalable, and easy to deploy.
