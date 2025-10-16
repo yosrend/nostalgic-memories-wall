@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { signUp } from "@/lib/auth-client";
+import { useAuth } from "@/hooks/use-supabase-auth";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
 const signUpSchema = z.object({
@@ -31,11 +31,11 @@ const signUpSchema = z.object({
 type SignUpForm = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const router = useRouter();
+    const { signUp: supabaseSignUp, loading } = useAuth();
 
     const form = useForm<SignUpForm>({
         resolver: zodResolver(signUpSchema),
@@ -48,25 +48,18 @@ export default function SignUpPage() {
     });
 
     const onSubmit = async (data: SignUpForm) => {
-        setIsLoading(true);
         setError("");
 
         try {
-            const result = await signUp.email({
-                email: data.email,
-                password: data.password,
-                name: data.name,
-            });
+            const { error: signUpError } = await supabaseSignUp(data.email, data.password);
 
-            if (result.error) {
-                setError(result.error.message || "Sign up failed");
+            if (signUpError) {
+                setError(signUpError.message || "Sign up failed");
             } else {
-                router.push("/dashboard");
+                router.push("/sign-in?message=Please check your email to confirm your account");
             }
         } catch (err) {
             setError("An unexpected error occurred");
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -98,7 +91,7 @@ export default function SignUpPage() {
                                             <Input
                                                 placeholder="Enter your full name"
                                                 {...field}
-                                                disabled={isLoading}
+                                                disabled={loading}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -117,7 +110,7 @@ export default function SignUpPage() {
                                                 type="email"
                                                 placeholder="Enter your email"
                                                 {...field}
-                                                disabled={isLoading}
+                                                disabled={loading}
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -137,7 +130,7 @@ export default function SignUpPage() {
                                                     type={showPassword ? "text" : "password"}
                                                     placeholder="Create a strong password"
                                                     {...field}
-                                                    disabled={isLoading}
+                                                    disabled={loading}
                                                     className="pr-10"
                                                 />
                                                 <Button
@@ -146,7 +139,7 @@ export default function SignUpPage() {
                                                     size="sm"
                                                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                                                     onClick={() => setShowPassword(!showPassword)}
-                                                    disabled={isLoading}
+                                                    disabled={loading}
                                                 >
                                                     {showPassword ? (
                                                         <EyeOff className="h-4 w-4" />
@@ -173,7 +166,7 @@ export default function SignUpPage() {
                                                     type={showConfirmPassword ? "text" : "password"}
                                                     placeholder="Confirm your password"
                                                     {...field}
-                                                    disabled={isLoading}
+                                                    disabled={loading}
                                                     className="pr-10"
                                                 />
                                                 <Button
@@ -182,7 +175,7 @@ export default function SignUpPage() {
                                                     size="sm"
                                                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                    disabled={isLoading}
+                                                    disabled={loading}
                                                 >
                                                     {showConfirmPassword ? (
                                                         <EyeOff className="h-4 w-4" />
@@ -197,8 +190,8 @@ export default function SignUpPage() {
                                 )}
                             />
 
-                            <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? (
+                            <Button type="submit" className="w-full" disabled={loading}>
+                                {loading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         Creating account...

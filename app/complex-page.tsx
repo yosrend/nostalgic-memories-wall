@@ -1,0 +1,223 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { motion } from "framer-motion"
+import { supabase } from "@/lib/supabase/client"
+import { Post } from "@/lib/supabase/types"
+import { SubmissionModal } from "@/components/submission-modal"
+import { MemoryCard } from "@/components/memory-card"
+import { AnimatedGrid } from "@/components/ui/animated-grid"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { Navigation } from "@/components/navigation"
+import { PageLoading } from "@/components/ui/loading"
+import { Button } from "@/components/ui/button"
+import { Share2, Plus } from "lucide-react"
+import { format } from "date-fns"
+import { HeroSection } from "@/components/hero-section"
+import { FeatureSection } from "@/components/feature-section"
+import { TestimonialsSection } from "@/components/testimonials-section"
+
+export default function Home() {
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showConnectionAlert, setShowConnectionAlert] = useState(false)
+
+  useEffect(() => {
+    const fetchApprovedPosts = async () => {
+      try {
+        setLoading(true)
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Error fetching posts:', error)
+          if (error.code === 'PGRST204' || error.message?.includes('relation') || error.message?.includes('deos not exist')) {
+          setShowConnectionAlert(true)
+          }
+          throw error
+        }
+        
+        // Filter posts client-side based on visibility (default true for existing posts)
+        const visiblePosts = (data || []).filter(post => post.is_visible !== false)
+        setPosts(visiblePosts)
+      } catch (error) {
+        console.error('Error in fetchApprovedPosts:', error)
+        setPosts([])
+        setShowConnectionAlert(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    const checkSupabaseConfig = () => {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (!url || url === 'your_supabase_project_url' || !anonKey || anonKey === 'your_supabase_anon_key') {
+        setShowConnectionAlert(true)
+      } else {
+        setShowConnectionAlert(false)
+      }
+    }
+    
+    checkSupabaseConfig()
+  }, [])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('posts')
+      .on(
+        'postgres_changes',
+        (payload) => {
+          console.log('Real-time update for approved posts:', payload)
+          
+          if (payload.eventType === 'INSERT') {
+            setPosts(prev => [payload.new as Post, ...prev])
+          }
+          
+          if (payload.eventType === 'UPDATE') {
+            if (payload.new?.status === 'approved' && payload.new?.is_visible !== false) {
+              setPosts(prev => 
+                prev.some(post => post.id === payload.new?.id)
+                  ? prev.map(post => 
+                    post.id === payload.new?.id ? payload.new as Post : post
+                  )
+                  : [payload.new as Post, ...prev]
+              )
+            } else if (payload.eventType === 'DELETE') {
+              setPosts(prev => 
+                prev.filter(post => post.id !== payload.old.id)
+              )
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe()
+      }
+    }
+  }, [])
+
+  if (loading) {
+    return <PageLoading message="Loading memories from the wall..." />
+  }
+
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <HeroSection postsCount={posts.length} />
+      
+      {/* Feature Section */}
+      <FeatureSection />
+      
+      {/* Testimonials Section */}
+      <TestimonialsSection />
+      
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-16">
+        {posts.length === 0 ? (
+          <div className="text-center py-16">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="flex justify-center mb-6">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="text-6xl"
+                >
+                  📸
+                </motion.div>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Welcome to Our Wall of Memories
+              </h2>
+              <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+                Share your favorite MAHWA 2006 memories and connect with fellow alumni in our beautiful community wall.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <SubmissionModal>
+                  <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-4 rounded-xl font-semibold shadow-xl">
+                    Share Memory
+                  </Button>
+                </SubmissionModal>
+              </div>
+            </motion.div>
+          </div>
+        ) : (
+          <>
+            {/* Memory Counter */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                <span className="bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                  {posts.length}
+                </span>{" "}
+                <span className="text-muted-foreground">
+                  {posts.length === 1 ? 'Memory' : 'Memories'} Shared
+                </span>
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Join our growing community of {posts.length} memory{posts.length === 1 ? '' : 'ies'} and counting!
+              </p>
+            </motion.div>
+
+            {/* Memory Grid */}
+            <AnimatedGrid>
+              {posts.map((post, index) => (
+                <motion.div
+                  key={post.id}
+                  style={{
+                    animationDelay: `${index * 50}ms`,
+                  }}
+                >
+                  <MemoryCard 
+                    post={post} 
+                    index={index}
+                    enableInteractions={true}
+                  />
+                </motion.div>
+              ))}
+            </AnimatedGrid>
+          </>
+        )}
+      </main>
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-8 left-4 right-4 flex gap-2 z-50">
+        <SubmissionModal>
+          <Button 
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-4 rounded-xl font-semibold shadow-xl"
+          >
+            <Share2 className="h-5 w-5" />
+            <span className="hidden sm:inline">Share Memory</span>
+          </Button>
+        </SubmissionModal>
+        
+        <SubmissionModal>
+          <Button 
+            variant="outline"
+            className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-center flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Download CSV</span>
+          </Button>
+        </SubmissionModal>
+      </div>
+    </div>
+  )
+}
+
+export default Home

@@ -1,43 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { signIn } from "@/lib/auth-client";
+import { useAuth } from "@/hooks/use-supabase-auth";
 import { Loader2 } from "lucide-react";
 
 export default function SignInPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
+    const [message, setMessage] = useState("");
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const { signIn: supabaseSignIn, loading } = useAuth();
+
+    useEffect(() => {
+        const messageParam = searchParams.get('message');
+        if (messageParam) {
+            setMessage(messageParam);
+        }
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
         setError("");
 
         try {
-            const result = await signIn.email({
-                email,
-                password,
-            });
+            const { error: signInError } = await supabaseSignIn(email, password);
 
-            if (result.error) {
-                setError(result.error.message || "Sign in failed");
+            if (signInError) {
+                setError(signInError.message || "Sign in failed");
             } else {
                 router.push("/dashboard");
             }
         } catch (err) {
             setError("An unexpected error occurred");
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -57,6 +60,11 @@ export default function SignInPage() {
                                 <AlertDescription>{error}</AlertDescription>
                             </Alert>
                         )}
+                        {message && (
+                            <Alert>
+                                <AlertDescription>{message}</AlertDescription>
+                            </Alert>
+                        )}
                         <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
                             <Input
@@ -66,7 +74,7 @@ export default function SignInPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                disabled={isLoading}
+                                disabled={loading}
                             />
                         </div>
                         <div className="space-y-2">
@@ -78,11 +86,11 @@ export default function SignInPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                disabled={isLoading}
+                                disabled={loading}
                             />
                         </div>
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? (
+                        <Button type="submit" className="w-full" disabled={loading}>
+                            {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                     Signing in...
